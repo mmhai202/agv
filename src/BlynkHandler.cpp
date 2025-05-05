@@ -9,6 +9,7 @@ void BlynkHandler::begin(Vehicle* v){
   Blynk.begin(BLYNK_AUTH_TOKEN, WIFI_SSID, WIFI_PASS);
   printf("Connected to Blynk!\n");
   BlynkHandler::vehicle = v;
+  BlynkHandler::vehicle->readyBlynk = true;
 }
 
 void BlynkHandler::run() { Blynk.run();}

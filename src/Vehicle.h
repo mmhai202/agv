@@ -36,8 +36,8 @@ public:
   size_t stepIdx = 0;
   std::vector<Step> steps;
   Data qrData;
-  int eA;
-  int prev_eA = 0;
+  float eA;
+  float prev_eA = 0;
   bool alignQR = false;
   bool startMission = false;
   bool fe = false;
@@ -47,6 +47,7 @@ public:
   bool startEncoder = false;
   bool readyRaspi = false;
   bool raspi = false;
+  bool readyBlynk = false;
 private:
   Encoder* _encoder;
   Uart2* _uart2;
