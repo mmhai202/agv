@@ -21,11 +21,12 @@ void taskRunBlynk(void* pvParameters) {
       }
       v.state = START;
       v.startMission = false;
+      v.dir = POS_Y;
       Serial.println("START");
     }
-    if (v.readyRaspi == true) {
+    if (v.readyRaspi == true && v.raspi == false) {
       b.write(7, 1);
-      v.readyRaspi = false;
+      v.raspi = true;
     }
     vTaskDelay(pdMS_TO_TICKS(10));
   }
@@ -146,10 +147,10 @@ void taskAlignQR(void* pvParameters) {
       else if (control < -10) control = -10;
     
       // Nếu sai số đáng kể thì điều chỉnh
-      if (v.eA > 3) {
+      if (v.eA < -2) {
         v.left(-v.speed - control);
         v.right(v.speed + control);
-      } else if (v.eA < -3) {
+      } else if (v.eA > 2) {
         v.left(v.speed + control);
         v.right(-v.speed - control);
       }
@@ -168,10 +169,8 @@ void taskControl(void* pvParameters) {
     bool qrAvailable = v.checkQRCode();
     if (qrAvailable) {
       v.qrData = u.read();
-      Serial.println("read data");
 
       if (v.qrData.valid) {
-        Serial.println("data valid");
         v.readyRaspi = true;
         if (v.steps.size() > 0) {
           int targetAngle;
@@ -183,12 +182,10 @@ void taskControl(void* pvParameters) {
           // Tính sai số  góc
           if(v.qrData.angle >= 180 && v.steps[v.stepIdx].dir == POS_Y) {v.qrData.angle -= 360;}
           v.eA = v.qrData.angle - targetAngle;
-          Serial.printf("v.eA = %d\n", v.eA);
+          Serial.printf("eA = %d, ", v.eA);
         }
       }
-
       if ((v.state == DONE_STEP || v.state == START) && v.qrData.id == v.steps[v.stepIdx].id) {
-        Serial.printf("RUN_QR\n");
         v.fe = false;
         v.startEncoder = false;
         e.stop();
@@ -196,7 +193,7 @@ void taskControl(void* pvParameters) {
         v.state = RUN_QR;
         vTaskDelay(pdMS_TO_TICKS(1000));
       } else if (v.state == RUN_QR) {
-        if (abs(v.eA) <= 3) {
+        if (abs(v.eA) <= 2) { // abs(v.eA) <= 3
           v.alignQR = false;
           v.stop();
           v.state = DONE_QR;
@@ -227,7 +224,10 @@ void setup() {
   v.begin(&e, &u, &a);
   b.begin(&v);
   b.write(7, 0);
-  Serial.println("setup.");
+  v.setMission(0, 7);
+  for (size_t i = 0; i < v.steps.size(); ++i) {
+    Serial.printf("[%02d] id=%d act=%d dir=%d\n",i,v.steps[i].id,v.steps[i].act,v.steps[i].dir);
+  }
 
   // Tạo các task FreeRTOS
   xTaskCreate(taskRunBlynk, "TaskRunBlynk", 10000, NULL, 3, NULL);

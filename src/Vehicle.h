@@ -46,6 +46,7 @@ public:
   bool r90 = false;
   bool startEncoder = false;
   bool readyRaspi = false;
+  bool raspi = false;
 private:
   Encoder* _encoder;
   Uart2* _uart2;

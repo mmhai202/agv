@@ -118,10 +118,16 @@ void Vehicle::processSteps() {
 }
 
 void Vehicle::setMission(int start, int goal) {
+  _astar->reset();
   _astar->setMission(start, goal);
   std::vector<Node*> path = _astar->findPath(_astar->start, _astar->goal);
+  if (path.empty()) {
+    Serial.println("[ERROR] Path not found!");
+    return;
+  }
   buildSteps(path);
 }
+
 
 bool Vehicle::checkQRCode() {
   return _uart2->available();

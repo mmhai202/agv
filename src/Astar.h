@@ -25,6 +25,7 @@ public:
   Node* start = nullptr;
   Node* goal = nullptr;
   void begin();
+  void reset();
   void setMission(int Start, int Goal);
   void setBlocked(int id);
   void clearAllBlocked();

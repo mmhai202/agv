@@ -16,6 +16,14 @@ void AStar::begin() {
   }
 }
 
+void AStar::reset() {
+  for (Node* n : _grid) {
+    n->gCost    = 100;
+    n->hCost    = 0;
+    n->parent   = nullptr;
+  }
+}
+
 void AStar::setMission(int Start, int Goal) {
   start = _grid[Start]; 
   goal = _grid[Goal];
