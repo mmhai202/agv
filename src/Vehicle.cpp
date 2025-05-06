@@ -99,8 +99,7 @@ void Vehicle::startStep(const Step& step) {
       fe = true;
       break;
     case Action::BACK:
-      left(-speed);
-      right(-speed);
+      be = true;
       break;
     case Action::LEFT:
       l90 = true;

@@ -41,6 +41,7 @@ public:
   float prev_eA = 0;
   bool alignQR = false;
   bool startMission = false;
+  bool be = false;
   bool fe = false;
   bool f10 = false;
   bool l90 = false;

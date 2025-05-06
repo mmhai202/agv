@@ -16,7 +16,7 @@ void taskRunBlynk(void* pvParameters) {
     b.run();
     if (v.startMission) {
       v.dir = POS_Y;
-      v.setMission(v.start, v.goal);
+      v.setMission(0, v.start);
       for (size_t i = 0; i < v.steps.size(); ++i) {Serial.printf("%d,",v.steps[i].id);}
       v.state = START;
       v.startMission = false;
@@ -42,7 +42,7 @@ void taskForward(void* pvParameters) {
       }
       if (abs(v.eX) > 50) {
         v.left(v.speed);
-        v.right(v.speed + 5 * (e.getL() - e.getR() - (v.eX > 0 ? 3 : -3)));
+        v.right(v.speed + 5 * (e.getL() - e.getR() - (v.eX > 0 ? 5 : -3)));
       } else {
         v.left(v.speed);
         v.right(v.speed + 5 * (e.getL() - e.getR()));
@@ -70,7 +70,7 @@ void taskl90(void* pvParameters) {
           vTaskDelay(pdMS_TO_TICKS(1000));
           v.f10 = true;
           v.startEncoder = false;
-          Serial.printf("EncoderL: %d | EncoderR: %d\n", e.getL(), e.getR());
+          Serial.printf("F10:%d,%d ", e.getL(), e.getR());
         }
       }
       else if (v.f10) {
@@ -88,8 +88,9 @@ void taskl90(void* pvParameters) {
           v.l90 = false;
           v.f10 = false;
           v.startEncoder = false;
+          v.eX = false;
           v.fe = true;
-          Serial.printf("EncoderL: %d | EncoderR: %d\n", e.getL(), e.getR());
+          Serial.printf("L90:%d,%d ", e.getL(), e.getR());
         }
       }
     }
@@ -115,7 +116,7 @@ void taskr90(void* pvParameters) {
           vTaskDelay(pdMS_TO_TICKS(1000));
           v.f10 = true;
           v.startEncoder = false;
-          Serial.printf("EncoderL: %d | EncoderR: %d\n", e.getL(), e.getR());
+          Serial.printf("F10:%d,%d ", e.getL(), e.getR());
         }
       }
       else if (v.f10) {
@@ -133,8 +134,55 @@ void taskr90(void* pvParameters) {
           v.r90 = false;
           v.f10 = false;
           v.startEncoder = false;
+          v.eX = false;
           v.fe = true;
-          Serial.printf("EncoderL: %d | EncoderR: %d\n", e.getL(), e.getR());
+          Serial.printf("R90:%d,%d ", e.getL(), e.getR());
+        }
+      }
+    }
+    vTaskDelay(pdMS_TO_TICKS(5));
+  }
+}
+
+void taskBack(void* pvParameters) {
+  while (1)
+  {
+    if (v.be) {
+      if (!v.f10) {
+        if (!v.startEncoder) {
+          e.start();
+          v.startEncoder = true;
+        }
+        if (e.getR() < 28) {
+          v.left(v.speed);
+          v.right(v.speed + 5 * (e.getL() - e.getR()));
+        } else {
+          v.stop();
+          e.stop();
+          vTaskDelay(pdMS_TO_TICKS(1000));
+          v.f10 = true;
+          v.startEncoder = false;
+          Serial.printf("F10:%d,%d ", e.getL(), e.getR());
+        }
+      }
+      else if (v.f10) {
+        if (!v.startEncoder) {
+          e.start();
+          v.startEncoder = true;
+        }
+        if (e.getL() < 101) {
+          v.left(-v.speed);
+          v.right(v.speed + 5 * (e.getL() - e.getR()));
+        } else {
+          v.stop();
+          e.stop();
+          vTaskDelay(pdMS_TO_TICKS(1000));
+          v.be = false;
+          v.f10 = false;
+          v.startEncoder = false;
+          v.eX = 0;
+          v.fe = true;
+          Serial.printf("Back:%d,%d ", e.getL(), e.getR());
         }
       }
     }
@@ -165,14 +213,14 @@ void taskAlignQR(void* pvParameters) {
       v.prev_eA = v.eA; // cập nhật eA cũ
       v.alignQR = false;
     }
-    vTaskDelay(pdMS_TO_TICKS(300));
+    vTaskDelay(pdMS_TO_TICKS(500));
   }
 }
 
 void taskControl(void* pvParameters) {
   while (1) {
     bool qrAvailable = v.checkQRCode();
-    if (qrAvailable && !v.l90 && !v.r90) {
+    if (qrAvailable && !v.l90 && !v.r90 && !v.be) {
       v.qrData = u.read();
       if (v.qrData.valid) {
         v.readyRaspi = true;
@@ -191,7 +239,7 @@ void taskControl(void* pvParameters) {
           v.fe = false;
           v.startEncoder = false;
           if (e.getL() > 0 || e.getR() > 0) e.stop();
-          Serial.printf("Forward:%d,%d", e.getL(), e.getR());
+          Serial.printf("Forward:%d,%d ", e.getL(), e.getR());
           v.stop();
           v.state = RUN_QR;
           vTaskDelay(pdMS_TO_TICKS(1000));
@@ -209,16 +257,22 @@ void taskControl(void* pvParameters) {
               Serial.printf("stepIdx=%d - ",v.stepIdx);
             } else {
               v.state = STOP;
-              Serial.println("Mission complete.");
+              if (v.qrData.id != v.goal) {
+                Serial.println("Start arrived.");
+                v.setMission(v.start, v.goal);
+                for (size_t i = 0; i < v.steps.size(); ++i) {Serial.printf("%d,",v.steps[i].id);}
+                v.state = START;
+                v.stepIdx = 0;
+              } else if (v.qrData.id = v.goal) Serial.println("Mission complete.");
             }
           } else v.alignQR = true;
         } 
       } else {
-        if (v.state == DONE_STEP) {
+        if (v.state == DONE_STEP && e.getL()>28) {
           v.fe = false;
           v.startEncoder = false;
           if (e.getL() > 0 || e.getR() > 0) e.stop();
-          Serial.printf("EncoderL: %d | EncoderR: %d\n", e.getL(), e.getR());
+          Serial.printf("Forward:%d,%d ", e.getL(), e.getR());
           v.stop();
           v.state = RUN_QR;
           vTaskDelay(pdMS_TO_TICKS(1000));
