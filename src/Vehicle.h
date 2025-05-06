@@ -50,6 +50,8 @@ public:
   bool readyRaspi = false;
   bool raspi = false;
   bool readyBlynk = false;
+  bool running = false;
+  bool osbtacle = false;
 private:
   Encoder* _encoder;
   Uart2* _uart2;

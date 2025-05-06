@@ -15,13 +15,17 @@ void taskRunBlynk(void* pvParameters) {
   while (1) {
     b.run();
     if (v.startMission) {
-      v.dir = POS_Y;
+      if      (abs(u.angle) <= 20)            v.dir = POS_Y;
+      else if (abs(u.angle - 90) <= 20)       v.dir = POS_X;
+      else if (abs(u.angle + 90) <= 20)       v.dir = NEG_X;
+      else if (abs(abs(u.angle) - 180) <= 20) v.dir = NEG_Y;
       v.setMission(0, v.start);
       for (size_t i = 0; i < v.steps.size(); ++i) {Serial.printf("%d,",v.steps[i].id);}
       v.state = START;
       v.startMission = false;
-      v.dir = v.steps[0].dir;
       v.stepIdx = 0;
+      v.running = true;
+      b.write(9,v.running);
       Serial.println("START");
     }
     if (v.readyRaspi == true && v.readyBlynk == true && v.raspi == false) {
@@ -232,6 +236,7 @@ void taskControl(void* pvParameters) {
           else if (v.steps[v.stepIdx].dir == POS_Y) {targetAngle = 0.0;}
           else if (v.steps[v.stepIdx].dir == NEG_Y) {targetAngle = 180.0;}
           // Tính sai số  góc
+          if (v.qrData.angle < -170) v.qrData.angle+=360;
           v.eA = v.qrData.angle - targetAngle;
           Serial.printf("eA=%.2f,",v.eA);
         }
@@ -257,13 +262,17 @@ void taskControl(void* pvParameters) {
               Serial.printf("stepIdx=%d - ",v.stepIdx);
             } else {
               v.state = STOP;
-              if (v.qrData.id != v.goal) {
+              if (v.qrData.id == v.start) {
                 Serial.println("Start arrived.");
                 v.setMission(v.start, v.goal);
                 for (size_t i = 0; i < v.steps.size(); ++i) {Serial.printf("%d,",v.steps[i].id);}
                 v.state = START;
                 v.stepIdx = 0;
-              } else if (v.qrData.id = v.goal) Serial.println("Mission complete.");
+              } else if (v.qrData.id == v.goal) {
+                Serial.println("Mission complete.");
+                v.running = false;
+                b.write(9,v.running);
+              }
             }
           } else v.alignQR = true;
         } 
@@ -293,10 +302,6 @@ void setup() {
   v.begin(&e, &u, &a);
   b.begin(&v);
   b.write(7, 0);
-  v.setMission(0, 7);
-  for (size_t i = 0; i < v.steps.size(); ++i) {
-    Serial.printf("[%02d] id=%d act=%d dir=%d\n",i,v.steps[i].id,v.steps[i].act,v.steps[i].dir);
-  }
 
   // Tạo các task FreeRTOS
   xTaskCreate(taskRunBlynk, "TaskRunBlynk", 10000, NULL, 3, NULL);
@@ -304,6 +309,7 @@ void setup() {
   xTaskCreate(taskForward, "taskForward", 10000, NULL, 1, NULL);
   xTaskCreate(taskl90, "taskl90", 10000, NULL, 1, NULL);
   xTaskCreate(taskr90, "taskr90", 10000, NULL, 1, NULL);
+  xTaskCreate(taskBack, "taskr90", 10000, NULL, 1, NULL);
   xTaskCreate(taskAlignQR, "taskAlignQR", 10000, NULL, 1, NULL);
 }
 
