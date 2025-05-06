@@ -30,13 +30,14 @@ public:
   
   int start = 0;
   int goal = 0;
-  int speed = 40;
+  int speed = 30;
   Direction dir = POS_Y;
   State state = STOP;
   size_t stepIdx = 0;
   std::vector<Step> steps;
   Data qrData;
   float eA;
+  int eX;
   float prev_eA = 0;
   bool alignQR = false;
   bool startMission = false;

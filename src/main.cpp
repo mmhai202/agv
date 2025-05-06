@@ -15,10 +15,9 @@ void taskRunBlynk(void* pvParameters) {
   while (1) {
     b.run();
     if (v.startMission) {
+      v.dir = POS_Y;
       v.setMission(v.start, v.goal);
-      for (size_t i = 0; i < v.steps.size(); ++i) {
-        Serial.printf("[%02d] id=%d act=%d dir=%d\n",i,v.steps[i].id,v.steps[i].act,v.steps[i].dir);
-      }
+      for (size_t i = 0; i < v.steps.size(); ++i) {Serial.printf("%d,",v.steps[i].id);}
       v.state = START;
       v.startMission = false;
       v.dir = v.steps[0].dir;
@@ -41,8 +40,13 @@ void taskForward(void* pvParameters) {
         e.start();
         v.startEncoder = true;
       }
-      v.left(v.speed);
-      v.right(v.speed + 5 * (e.getL() - e.getR()));
+      if (abs(v.eX) > 50) {
+        v.left(v.speed);
+        v.right(v.speed + 5 * (e.getL() - e.getR() - (v.eX > 0 ? 3 : -3)));
+      } else {
+        v.left(v.speed);
+        v.right(v.speed + 5 * (e.getL() - e.getR()));
+      }
     }
     vTaskDelay(pdMS_TO_TICKS(5));
   }
@@ -74,7 +78,7 @@ void taskl90(void* pvParameters) {
           e.start();
           v.startEncoder = true;
         }
-        if (e.getL() < 52) {
+        if (e.getL() < 50) {
           v.left(-v.speed);
           v.right(v.speed + 5 * (e.getL() - e.getR()));
         } else {
@@ -119,7 +123,7 @@ void taskr90(void* pvParameters) {
           e.start();
           v.startEncoder = true;
         }
-        if (e.getR() < 52) {
+        if (e.getR() < 50) {
           v.left(v.speed);
           v.right(-v.speed - 5 * (e.getL() - e.getR()));
         } else {
@@ -148,10 +152,10 @@ void taskAlignQR(void* pvParameters) {
       else if (control < -10) control = -10;
     
       // Nếu sai số đáng kể thì điều chỉnh
-      if (v.eA < -2) {
+      if (v.eA < -1.5) {
         v.left(-v.speed - control);
         v.right(v.speed + control);
-      } else if (v.eA > 2) {
+      } else if (v.eA > 1.5) {
         v.left(v.speed + control);
         v.right(-v.speed - control);
       }
@@ -161,17 +165,16 @@ void taskAlignQR(void* pvParameters) {
       v.prev_eA = v.eA; // cập nhật eA cũ
       v.alignQR = false;
     }
-    vTaskDelay(pdMS_TO_TICKS(20));
+    vTaskDelay(pdMS_TO_TICKS(300));
   }
 }
 
 void taskControl(void* pvParameters) {
   while (1) {
     bool qrAvailable = v.checkQRCode();
-    if (qrAvailable) {
+    if (qrAvailable && !v.l90 && !v.r90) {
       v.qrData = u.read();
       if (v.qrData.valid) {
-        v.qrData.valid = false;
         v.readyRaspi = true;
         if (v.steps.size() > 0) {
           float targetAngle;
@@ -182,30 +185,44 @@ void taskControl(void* pvParameters) {
           else if (v.steps[v.stepIdx].dir == NEG_Y) {targetAngle = 180.0;}
           // Tính sai số  góc
           v.eA = v.qrData.angle - targetAngle;
-          Serial.printf("eA=%.1f, ",v.eA);
+          Serial.printf("eA=%.2f,",v.eA);
         }
         if ((v.state == DONE_STEP || v.state == START) && v.qrData.id == v.steps[v.stepIdx].id) {
           v.fe = false;
           v.startEncoder = false;
-          e.stop();
+          if (e.getL() > 0 || e.getR() > 0) e.stop();
+          Serial.printf("Forward:%d,%d", e.getL(), e.getR());
           v.stop();
           v.state = RUN_QR;
           vTaskDelay(pdMS_TO_TICKS(1000));
         } else if (v.state == RUN_QR) {
-          if (abs(v.eA) <= 2) {
+          if (abs(v.eA) <= 1.5) {
+            v.eX = v.qrData.x-320;
+            Serial.printf("eX=%d\n",v.eX);
             v.alignQR = false;
             v.stop();
             v.state = DONE_QR;
+            vTaskDelay(pdMS_TO_TICKS(1000));
             if (v.stepIdx+1 < v.steps.size()) {
               v.stepIdx++;
               v.dir = v.steps[v.stepIdx].dir;
-              Serial.print("stepIdx: "); Serial.println(v.stepIdx);
+              Serial.printf("stepIdx=%d - ",v.stepIdx);
             } else {
               v.state = STOP;
               Serial.println("Mission complete.");
             }
           } else v.alignQR = true;
         } 
+      } else {
+        if (v.state == DONE_STEP) {
+          v.fe = false;
+          v.startEncoder = false;
+          if (e.getL() > 0 || e.getR() > 0) e.stop();
+          Serial.printf("EncoderL: %d | EncoderR: %d\n", e.getL(), e.getR());
+          v.stop();
+          v.state = RUN_QR;
+          vTaskDelay(pdMS_TO_TICKS(1000));
+        }
       }
     }
     if (v.state == DONE_QR) {v.processSteps(); v.state = RUN_STEP;}
