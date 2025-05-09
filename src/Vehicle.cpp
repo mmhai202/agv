@@ -27,11 +27,6 @@ void Vehicle::ha() {
   ledcWrite(PWM_CH_LIFT, 255);
 }
 
-void Vehicle::stop_lift() {
-  digitalWrite(LIFT_DIR, HIGH);
-  ledcWrite(PWM_CH_LIFT, LOW);
-}
-
 void Vehicle::stop() { 
   digitalWrite(L_DIR, LOW);
   digitalWrite(R_DIR, LOW);

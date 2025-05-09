@@ -19,6 +19,7 @@ void taskHCSR04(void* pvParameters) {
     if (h.distance1 > 0 && h.distance1 <= 10 && v.state == DONE_STEP) {
       Serial.printf("h1:%d,",h.distance1);
       v.osbtacle = true;
+      b.write(10, v.osbtacle);
       v.fe = false;
       v.startEncoder = false;
       if (e.getL() > 0 || e.getR() > 0) e.stop();
@@ -39,6 +40,7 @@ void taskHCSR04(void* pvParameters) {
       if (e.getL() > 0 || e.getR() > 0) e.stop();
       v.stop();
       v.error = true;
+      b.write(11, v.error);
       v.state = STOP;
     }
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -62,12 +64,15 @@ void taskRunBlynk(void* pvParameters) {
                       v.steps[i].dir);
       }
       v.state = START;
+      v.arrivedStart = false;
       v.startMission = false;
       v.stepIdx = 0;
       v.running = true;
       v.error = false;
       v.osbtacle = false;
       b.write(9,v.running);
+      b.write(9,v.osbtacle);
+      b.write(9,v.error);
       Serial.println("START");
     }
     if (v.readyRaspi == true && v.readyBlynk == true && v.raspi == false) {
@@ -180,7 +185,7 @@ void taskl90(void* pvParameters) {
           v.l90 = false;
           v.f10 = false;
           v.startEncoder = false;
-          v.eX = false;
+          v.eX = 0;
           v.fe = true;
           Serial.printf("L90:%d,%d ", e.getL(), e.getR());
         }
@@ -226,7 +231,7 @@ void taskr90(void* pvParameters) {
           v.r90 = false;
           v.f10 = false;
           v.startEncoder = false;
-          v.eX = false;
+          v.eX = 0;
           v.fe = true;
           Serial.printf("R90:%d,%d ", e.getL(), e.getR());
         }
@@ -302,7 +307,10 @@ void taskControl(void* pvParameters) {
         if ((v.state == DONE_STEP || v.state == START) && v.qrData.id == v.steps[v.stepIdx].id) {
           v.fe = false;
           v.be = false;
-          v.osbtacle = false;
+          if (v.osbtacle) {
+            v.osbtacle = false;
+            b.write(10, v.osbtacle);
+          }
           v.startEncoder = false;
           if (e.getL() > 0 || e.getR() > 0) e.stop();
           Serial.printf("Forward:%d,%d ", e.getL(), e.getR());
@@ -353,7 +361,12 @@ void taskControl(void* pvParameters) {
         } 
       } else {
         if (v.state == DONE_STEP && e.getL()>28) {
+          if (v.osbtacle) {
+            v.osbtacle = false;
+            b.write(10, v.osbtacle);
+          }
           v.fe = false;
+          v.be = false;
           v.startEncoder = false;
           if (e.getL() > 0 || e.getR() > 0) e.stop();
           Serial.printf("Forward:%d,%d ", e.getL(), e.getR());
@@ -378,15 +391,18 @@ void setup() {
   b.begin(&v);
   h.begin();
   b.write(7, 0);
+  b.write(9, 0);
+  b.write(10, 0);
+  b.write(11, 0);
 
   // Tạo các task FreeRTOS
   xTaskCreate(taskRunBlynk, "TaskRunBlynk", 10000, NULL, 3, NULL);
   xTaskCreate(taskControl, "TaskControl", 10000, NULL, 2, NULL);
   xTaskCreate(taskForward, "taskForward", 10000, NULL, 1, NULL);
   xTaskCreate(taskl90, "taskl90", 10000, NULL, 1, NULL);
-  xTaskCreate(taskl180, "taskl90", 10000, NULL, 1, NULL);
+  xTaskCreate(taskl180, "taskl180", 10000, NULL, 1, NULL);
   xTaskCreate(taskr90, "taskr90", 10000, NULL, 1, NULL);
-  xTaskCreate(taskBack, "taskr90", 10000, NULL, 1, NULL);
+  xTaskCreate(taskBack, "taskBack", 10000, NULL, 1, NULL);
   xTaskCreate(taskAlignQR, "taskAlignQR", 10000, NULL, 1, NULL);
   xTaskCreate(taskHCSR04, "taskHCSR04", 10000, NULL, 2, NULL);
 }

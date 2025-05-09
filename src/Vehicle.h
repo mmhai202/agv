@@ -21,7 +21,6 @@ public:
   void begin(Encoder* encoder, Uart2* uart2, AStar* astar);
   void nang();
   void ha();
-  void stop_lift();
   void stop();
   void left(int16_t pwm);
   void right(int16_t pwm);
