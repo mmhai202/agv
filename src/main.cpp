@@ -19,7 +19,7 @@ void taskHCSR04(void* pvParameters) {
     if (h.distance1 > 0 && h.distance1 <= 10 && v.state == DONE_STEP) {
       Serial.printf("h1:%d,",h.distance1);
       v.osbtacle = true;
-      b.write(10, v.osbtacle);
+      b.write(10,v.osbtacle);
       v.fe = false;
       v.startEncoder = false;
       if (e.getL() > 0 || e.getR() > 0) e.stop();
@@ -40,8 +40,8 @@ void taskHCSR04(void* pvParameters) {
       if (e.getL() > 0 || e.getR() > 0) e.stop();
       v.stop();
       v.error = true;
-      b.write(11, v.error);
       v.state = STOP;
+      b.write(11,v.error);
     }
     vTaskDelay(pdMS_TO_TICKS(100));
   }
@@ -64,15 +64,16 @@ void taskRunBlynk(void* pvParameters) {
                       v.steps[i].dir);
       }
       v.state = START;
-      v.arrivedStart = false;
       v.startMission = false;
       v.stepIdx = 0;
       v.running = true;
       v.error = false;
       v.osbtacle = false;
       b.write(9,v.running);
-      b.write(9,v.osbtacle);
-      b.write(9,v.error);
+      b.write(10,v.osbtacle);
+      b.write(11,v.error);
+      a.clearAllBlocked();
+      v.arrivedStart = false;
       Serial.println("START");
     }
     if (v.readyRaspi == true && v.readyBlynk == true && v.raspi == false) {
@@ -280,7 +281,7 @@ void taskAlignQR(void* pvParameters) {
       v.prev_eA = v.eA; // cập nhật eA cũ
       v.alignQR = false;
     }
-    vTaskDelay(pdMS_TO_TICKS(400));
+    vTaskDelay(pdMS_TO_TICKS(500));
   }
 }
 
@@ -307,10 +308,7 @@ void taskControl(void* pvParameters) {
         if ((v.state == DONE_STEP || v.state == START) && v.qrData.id == v.steps[v.stepIdx].id) {
           v.fe = false;
           v.be = false;
-          if (v.osbtacle) {
-            v.osbtacle = false;
-            b.write(10, v.osbtacle);
-          }
+          v.osbtacle = false;
           v.startEncoder = false;
           if (e.getL() > 0 || e.getR() > 0) e.stop();
           Serial.printf("Forward:%d,%d ", e.getL(), e.getR());
@@ -361,12 +359,7 @@ void taskControl(void* pvParameters) {
         } 
       } else {
         if (v.state == DONE_STEP && e.getL()>28) {
-          if (v.osbtacle) {
-            v.osbtacle = false;
-            b.write(10, v.osbtacle);
-          }
           v.fe = false;
-          v.be = false;
           v.startEncoder = false;
           if (e.getL() > 0 || e.getR() > 0) e.stop();
           Serial.printf("Forward:%d,%d ", e.getL(), e.getR());

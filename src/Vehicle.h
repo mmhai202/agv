@@ -32,7 +32,7 @@ public:
   
   int start = 0;
   int goal = 0;
-  int speed = 50;
+  int speed = 40;
   Direction dir = POS_Y;
   State state = STOP;
   size_t stepIdx = 0;

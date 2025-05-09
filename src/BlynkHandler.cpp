@@ -85,9 +85,6 @@ BLYNK_WRITE(V14) {
   if(param.asInt()) {
     BlynkHandler::vehicle->fe = false;
     BlynkHandler::vehicle->be = false;
-    BlynkHandler::vehicle->l180 = false;
-    BlynkHandler::vehicle->l90 = false;
-    BlynkHandler::vehicle->r90 = false;
     BlynkHandler::vehicle->stop();
     BlynkHandler::vehicle->state = STOP;
   }
