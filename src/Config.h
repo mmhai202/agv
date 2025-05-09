@@ -29,6 +29,11 @@ constexpr int ECHO1 = 32;
 constexpr int TRIG2 = 26;
 constexpr int ECHO2 = 25;
 
+// Động cơ nâng
+constexpr int LIFT_DIR = 22;
+constexpr int LIFT_PWM = 23;
+constexpr int PWM_CH_LIFT = 2;
+
 // UART2 data
 struct Data {
   bool valid;

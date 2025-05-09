@@ -68,3 +68,15 @@ BLYNK_WRITE(V8) {
     BlynkHandler::vehicle->startMission = true;
   }
 }
+
+BLYNK_WRITE(V12) {
+  if(param.asInt()) {
+    BlynkHandler::vehicle->nang();
+  }
+}
+
+BLYNK_WRITE(V13) {
+  if(param.asInt()) {
+    BlynkHandler::vehicle->ha();
+  }
+}

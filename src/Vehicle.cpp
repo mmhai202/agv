@@ -5,14 +5,33 @@ void Vehicle::begin(Encoder* encoder, Uart2* uart2, AStar* astar) {
   _encoder = encoder;
   _uart2 = uart2;
   _astar = astar;
+  pinMode(LIFT_DIR, OUTPUT); pinMode(LIFT_PWM, OUTPUT);
   pinMode(L_DIR, OUTPUT); pinMode(L_PWM, OUTPUT);
   pinMode(R_DIR, OUTPUT); pinMode(R_PWM, OUTPUT);
   ledcSetup(PWM_CH_LEFT , PWM_FREQ, PWM_RES);  // Setup PWM for left motor
   ledcSetup(PWM_CH_RIGHT, PWM_FREQ, PWM_RES);  // Setup PWM for right motor
+  ledcSetup(PWM_CH_LIFT, PWM_FREQ, PWM_RES);
   ledcAttachPin(L_PWM, PWM_CH_LEFT);       // Attach PWM to left motor
   ledcAttachPin(R_PWM, PWM_CH_RIGHT);      // Attach PWM to right motor
+  ledcAttachPin(LIFT_PWM, PWM_CH_LIFT);
   stop();
 }
+
+void Vehicle::nang() {
+  digitalWrite(LIFT_DIR, LOW);
+  ledcWrite(PWM_CH_LIFT, 255);
+}
+
+void Vehicle::ha() {
+  digitalWrite(LIFT_DIR, HIGH);
+  ledcWrite(PWM_CH_LIFT, 255);
+}
+
+void Vehicle::stop_lift() {
+  digitalWrite(LIFT_DIR, HIGH);
+  ledcWrite(PWM_CH_LIFT, LOW);
+}
+
 void Vehicle::stop() { 
   digitalWrite(L_DIR, LOW);
   digitalWrite(R_DIR, LOW);

@@ -261,12 +261,13 @@ void taskAlignQR(void* pvParameters) {
       else if (control < -10) control = -10;
     
       // Nếu sai số đáng kể thì điều chỉnh
+      int speed = 30;
       if (v.eA < -1.5) {
-        v.left(-30 - control);
-        v.right(30 + control);
+        v.left(-speed - control);
+        v.right(speed + control);
       } else if (v.eA > 1.5) {
-        v.left(30 + control);
-        v.right(-30 - control);
+        v.left(speed + control);
+        v.right(-speed - control);
       }
       vTaskDelay(pdMS_TO_TICKS(100));
       v.stop();
@@ -324,6 +325,8 @@ void taskControl(void* pvParameters) {
               v.state = STOP;
               if (v.qrData.id == v.start) {
                 Serial.println("Start arrived.");
+                v.nang();
+                vTaskDelay(pdMS_TO_TICKS(5000));
                 v.arrivedStart = true;
                 v.setMission(v.start, v.goal);
                 for (size_t i = 0; i < v.steps.size(); ++i) {
@@ -338,6 +341,8 @@ void taskControl(void* pvParameters) {
               } else if (v.qrData.id == v.goal) {
                 Serial.println("Goal arrived.");
                 Serial.println("Mission complete.");
+                v.ha();
+                vTaskDelay(pdMS_TO_TICKS(5000));
                 v.running = false;
                 b.write(9,v.running);
                 v.arrivedStart = false;
