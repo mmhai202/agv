@@ -66,8 +66,8 @@ void Vehicle::buildSteps(const std::vector<Node*>& path) {
 
     /* ----- hướng NEG_Y ----- */
     if (path_dir == NEG_Y) {
-      if      (dy ==  1) { steps.push_back({path[i]->id, Action::BACK, NEG_Y});  path_dir = NEG_Y;  }
-      else if (dy == -1) { steps.push_back({path[i]->id, Action::FWD , POS_Y});  path_dir = POS_Y;  }
+      if      (dy ==  1) { steps.push_back({path[i]->id, Action::BACK, POS_Y});  path_dir = POS_Y;  }
+      else if (dy == -1) { steps.push_back({path[i]->id, Action::FWD , NEG_Y});  path_dir = NEG_Y;  }
       else if (dx ==  1) { steps.push_back({path[i]->id, Action::RIGHT,POS_X});  path_dir = POS_X;  }
       else if (dx == -1) { steps.push_back({path[i]->id, Action::LEFT ,NEG_X});  path_dir = NEG_X;  }
       continue;
@@ -99,7 +99,7 @@ void Vehicle::startStep(const Step& step) {
       fe = true;
       break;
     case Action::BACK:
-      be = true;
+      l180 = true;
       break;
     case Action::LEFT:
       l90 = true;

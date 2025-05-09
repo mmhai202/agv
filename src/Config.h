@@ -23,6 +23,12 @@ constexpr int PWM_RES      = 8;
 constexpr int ENCODER_L = 27;
 constexpr int ENCODER_R = 14;
 
+// HC-SR04
+constexpr int TRIG1 = 33;
+constexpr int ECHO1 = 32;
+constexpr int TRIG2 = 26;
+constexpr int ECHO2 = 25;
+
 // UART2 data
 struct Data {
   bool valid;

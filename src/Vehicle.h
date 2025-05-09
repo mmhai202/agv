@@ -30,7 +30,7 @@ public:
   
   int start = 0;
   int goal = 0;
-  int speed = 30;
+  int speed = 50;
   Direction dir = POS_Y;
   State state = STOP;
   size_t stepIdx = 0;
@@ -46,12 +46,15 @@ public:
   bool f10 = false;
   bool l90 = false;
   bool r90 = false;
+  bool l180 = false;
   bool startEncoder = false;
   bool readyRaspi = false;
   bool raspi = false;
   bool readyBlynk = false;
   bool running = false;
   bool osbtacle = false;
+  bool error = false;
+  bool arrivedStart = false;
 private:
   Encoder* _encoder;
   Uart2* _uart2;

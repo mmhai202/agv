@@ -11,7 +11,7 @@ Data Uart2::read(){
   String s = _ser->readStringUntil('\n');
   s.trim();
   int c1 = s.indexOf(','), c2 = s.indexOf(',',c1+1), c3 = s.indexOf(',',c2+1), c4 = s.indexOf(',',c3+1);  
-  if (c1 == -1 || c2 == -1 || c3 == -1 || c4 == -1) {Serial.println("error"); return d;}
+  if (c1 == -1 || c2 == -1 || c3 == -1 || c4 == -1) {return d;}
   String valid = s.substring(0,c1);
   if (valid != "raspi_camera") {return d;}
   else {d.valid = true;}
@@ -20,5 +20,6 @@ Data Uart2::read(){
   d.y = s.substring(c3+1,c4).toInt();
   d.angle = s.substring(c4+1).toFloat();
   angle = d.angle;
+  id = d.id;
   return d;
 }
