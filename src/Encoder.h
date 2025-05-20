@@ -13,8 +13,8 @@ public:
 private:
   static void IRAM_ATTR isrLeft();
   static void IRAM_ATTR isrRight();
-  static volatile int encoderL;
-  static volatile int encoderR;
+  static volatile long encoderL;
+  static volatile long encoderR;
   static volatile bool risingLeftDetected;
   static volatile bool risingRightDetected;
   static unsigned long lastDebounceLeft;

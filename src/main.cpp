@@ -13,19 +13,69 @@ Encoder       e;   // Đo vị trí xe
 AStar         a;   // Thuật toán A*
 hcsr04        h;   // Cảm biến siêu âm
 
+const int QUAY_TRAI = 54;
+const int QUAY_PHAI = 54;
+const int QUAY_180  = 105;
+
+unsigned long pre_time, new_time, first_time = 0;
+float prev_v = 0;
+// Task đọc vận tốc và gia tốc
+void taskDoVanToc(void* pvParameters) {
+  while(1)
+  {
+    if (v.estimate_v && e.getL() > 0) {
+      float d = (float)e.getL() / 80.0 * 314.0; // quãng đường mm
+      new_time = millis();
+
+      // Vận tốc = quãng đường / thời gian từ đầu
+      unsigned long total_time = new_time - first_time;
+      float curr_v = 0;
+      if (total_time > 0) {
+        curr_v = d / ((float)total_time / 1000.0); // mm/s
+      }
+
+      // Gia tốc = (v2 - v1) / delta_t
+      unsigned long delta_time = new_time - pre_time;
+      float acc = 0;
+      if (delta_time > 0) {
+        acc = (curr_v - prev_v) / ((float)delta_time / 1000.0); // mm/s^2
+      }
+
+      // In kết quả
+      Serial.printf("van toc: %.2f mm/s\tgia toc: %.2f mm/s^2\n", curr_v, acc);
+
+      // Cập nhật lại giá trị trước đó
+      prev_v = curr_v;
+      pre_time = new_time;
+
+    } else if (v.estimate_v && e.getL() == 0) {
+      e.start(); // reset encoder
+      first_time = millis();
+      pre_time = first_time;
+      prev_v = 0;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(500));
+  }
+}
+
+// Task đọc cảm biến siêu âm HCSR04 để phát hiện vật cản
 void taskHCSR04(void* pvParameters) {
   while (1) {
-    h.run();
+    h.run(); // Cập nhật dữ liệu từ cảm biến siêu âm
+
+    // Nếu phát hiện vật cản phía trước
     if (h.distance1 > 0 && h.distance1 <= 10 && v.state == DONE_STEP) {
-      Serial.printf("h1:%d,",h.distance1);
-      v.osbtacle = true;
+      v.osbtacle = true; // Bật cờ vật cản
       b.write(10,v.osbtacle);
       v.fe = false;
       v.startEncoder = false;
       if (e.getL() > 0 || e.getR() > 0) e.stop();
       v.stop();
-      v.dir = v.steps[v.stepIdx].dir;
-      a.setBlocked(v.steps[v.stepIdx].id);
+      v.dir = v.steps[v.stepIdx].dir; // Lưu lại hướng hiện tại
+      a.setBlocked(v.steps[v.stepIdx].id); // Đánh dấu node hiện tại bị chặn trong A*
+
+      // Lập kế hoạch lại từ bước trước đến start hoặc goal tùy trạng thái hiện tại
       if (!v.arrivedStart) v.setMission(v.steps[v.stepIdx-1].id, v.start);
       else v.setMission(v.steps[v.stepIdx-1].id, v.goal);
       v.state = START;
@@ -34,6 +84,8 @@ void taskHCSR04(void* pvParameters) {
       v.be = true;
       vTaskDelay(pdMS_TO_TICKS(20));
     }
+
+    // Nếu có vật cản phía sau khi đang lùi thì dừng lại và báo lỗi
     if (h.distance2 > 0 && h.distance2 <= 10 && v.osbtacle == true) {
       v.be = false;
       v.startEncoder = false;
@@ -47,22 +99,21 @@ void taskHCSR04(void* pvParameters) {
   }
 }
 
+// Task nhận điều khiển từ app Blynk
 void taskRunBlynk(void* pvParameters) {
   while (1) {
-    b.run();
+    b.run(); // Duy trì tín hiệu từ Blynk
+
+    // Nếu được yêu cầu bắt đầu nhiệm vụ (startMission)
     if (v.startMission) {
       if      (abs(u.angle) <= 20)            v.dir = POS_Y;
       else if (abs(u.angle - 90) <= 20)       v.dir = POS_X;
       else if (abs(u.angle + 90) <= 20)       v.dir = NEG_X;
       else if (abs(abs(u.angle) - 180) <= 20) v.dir = NEG_Y;
       v.setMission(u.id, v.start);
-      for (size_t i = 0; i < v.steps.size(); ++i) {
-        Serial.printf("[%02d] id=%d act=%d dir=%d\n",
-                      i,
-                      v.steps[i].id,
-                      v.steps[i].act,
-                      v.steps[i].dir);
-      }
+      Serial.printf("Next mission: %d steps\n", v.steps.size());
+
+      // Cập nhật các cờ
       v.state = START;
       v.startMission = false;
       v.stepIdx = 0;
@@ -84,14 +135,16 @@ void taskRunBlynk(void* pvParameters) {
   }
 }
 
+// Task điều khiển xe tiến về phía trước bằng encoder
 void taskForward(void* pvParameters) {
   while (1)
   {
-    if (v.fe) {
+    if (v.fe) { // Nếu cờ "forward encoder" được bật
       if (!v.startEncoder) {
-        e.start();
+        e.start(); // Bắt đầu đo encoder
         v.startEncoder = true;
       }
+      // Điều chỉnh tốc độ để giữ cân bằng dựa vào độ lệch trục X
       if (abs(v.eX) > 50) {
         v.left(v.speed);
         v.right(v.speed + 5 * (e.getL() - e.getR() - (v.eX > 0 ? 5 : -3)));
@@ -104,18 +157,19 @@ void taskForward(void* pvParameters) {
   }
 }
 
+// Task quay đầu 180 độ
 void taskl180(void* pvParameters) {
   while (1)
   {
     if (v.l180) {
-      if (!v.f10) {
+      if (!v.f10) { // Giai đoạn đầu: đi thẳng 1 đoạn nhỏ 10cm (tương ứng 28 xung encoder)
         if (!v.startEncoder) {
           e.start();
           v.startEncoder = true;
         }
         if (e.getR() < 28) {
           v.left(v.speed);
-          v.right(v.speed + 5 * (e.getL() - e.getR()));
+          v.right(v.speed + 5 * (e.getL() - e.getR()) - 2);
         } else {
           v.stop();
           e.stop();
@@ -125,12 +179,12 @@ void taskl180(void* pvParameters) {
           Serial.printf("F10:%d,%d ", e.getL(), e.getR());
         }
       }
-      else if (v.f10) {
+      else if (v.f10) { // Giai đoạn quay đầu 180 độ
         if (!v.startEncoder) {
           e.start();
           v.startEncoder = true;
         }
-        if (e.getL() < 101) {
+        if (e.getL() < QUAY_180) {
           v.left(-v.speed);
           v.right(v.speed + 5 * (e.getL() - e.getR()));
         } else {
@@ -150,18 +204,19 @@ void taskl180(void* pvParameters) {
   }
 }
 
+// Task quay trái 90 độ
 void taskl90(void* pvParameters) {
   while (1)
   {
     if (v.l90) {
-      if (!v.f10) {
+      if (!v.f10) { // Giai đoạn đầu: đi thẳng 1 đoạn nhỏ 10cm (tương ứng 28 xung encoder)
         if (!v.startEncoder) {
           e.start();
           v.startEncoder = true;
         }
         if (e.getR() < 28) {
           v.left(v.speed);
-          v.right(v.speed + 5 * (e.getL() - e.getR()));
+          v.right(v.speed + 5 * (e.getL() - e.getR()) - 2);
         } else {
           v.stop();
           e.stop();
@@ -171,12 +226,12 @@ void taskl90(void* pvParameters) {
           Serial.printf("F10:%d,%d ", e.getL(), e.getR());
         }
       }
-      else if (v.f10) {
+      else if (v.f10) { // Giai đoạn rẽ trái 90 độ
         if (!v.startEncoder) {
           e.start();
           v.startEncoder = true;
         }
-        if (e.getL() < 50) {
+        if (e.getL() < QUAY_TRAI) {
           v.left(-v.speed);
           v.right(v.speed + 5 * (e.getL() - e.getR()));
         } else {
@@ -196,18 +251,19 @@ void taskl90(void* pvParameters) {
   }
 }
 
+// Task quay phải 90 độ
 void taskr90(void* pvParameters) {
   while (1)
   {
     if (v.r90) {
-      if (!v.f10) {
+      if (!v.f10) { // Giai đoạn đầu: đi thẳng 1 đoạn nhỏ 10cm (tương ứng 28 xung encoder)
         if (!v.startEncoder) {
           e.start();
           v.startEncoder = true;
         }
         if (e.getR() < 28) {
           v.left(v.speed);
-          v.right(v.speed + 5 * (e.getL() - e.getR()));
+          v.right(v.speed + 5 * (e.getL() - e.getR()) - 2);
         } else {
           v.stop();
           e.stop();
@@ -217,12 +273,12 @@ void taskr90(void* pvParameters) {
           Serial.printf("F10:%d,%d ", e.getL(), e.getR());
         }
       }
-      else if (v.f10) {
+      else if (v.f10) { // Giai đoạn quay phải 90 độ
         if (!v.startEncoder) {
           e.start();
           v.startEncoder = true;
         }
-        if (e.getR() < 54) {
+        if (e.getR() < QUAY_PHAI) {
           v.left(v.speed);
           v.right(-v.speed - 5 * (e.getL() - e.getR()));
         } else {
@@ -242,6 +298,7 @@ void taskr90(void* pvParameters) {
   }
 }
 
+// Task điều khiển đi lùi bằng encoder
 void taskBack(void* pvParameters) {
   while (1)
   {
@@ -257,6 +314,7 @@ void taskBack(void* pvParameters) {
   }
 }
 
+// Task căn chỉnh góc để thẳng hàng với mã QR
 void taskAlignQR(void* pvParameters) {
   while (1) {
     if (v.alignQR) {
@@ -267,7 +325,7 @@ void taskAlignQR(void* pvParameters) {
       else if (control < -10) control = -10;
     
       // Nếu sai số đáng kể thì điều chỉnh
-      int speed = 30;
+      int speed = 40;
       if (v.eA < -1.5) {
         v.left(-speed - control);
         v.right(speed + control);
@@ -285,11 +343,12 @@ void taskAlignQR(void* pvParameters) {
   }
 }
 
+// Task quản lý luồng điều khiển chính
 void taskControl(void* pvParameters) {
   while (1) {
-    bool qrAvailable = v.checkQRCode();
-    if (qrAvailable && !v.l90 && !v.r90 && !v.l180) {
-      v.qrData = u.read();
+    bool qrAvailable = v.checkQRCode(); 
+    if (qrAvailable && !v.l90 && !v.r90 && !v.l180) { // Kiểm tra có mã QR không
+      v.qrData = u.read(); // Đọc dữ liệu từ raspi camera qua uart
       if (v.qrData.valid) {
         v.readyRaspi = true;
         if (v.steps.size() > 0 && v.state != DONE_QR && v.state != RUN_STEP) {
@@ -299,11 +358,10 @@ void taskControl(void* pvParameters) {
           else if (v.steps[v.stepIdx].dir == NEG_X) {targetAngle = -90.0;}
           else if (v.steps[v.stepIdx].dir == POS_Y) {targetAngle = 0.0;}
           else if (v.steps[v.stepIdx].dir == NEG_Y) {targetAngle = 180.0;}
-          // Tính sai số  góc
+          // Tính sai số góc
           if (v.qrData.angle < -160) {
             v.eA = v.qrData.angle + 360 - targetAngle;
           } else v.eA = v.qrData.angle - targetAngle;
-          Serial.printf("eA=%.2f,",v.eA);
         }
         if ((v.state == DONE_STEP || v.state == START) && v.qrData.id == v.steps[v.stepIdx].id) {
           v.fe = false;
@@ -311,13 +369,14 @@ void taskControl(void* pvParameters) {
           v.osbtacle = false;
           v.startEncoder = false;
           if (e.getL() > 0 || e.getR() > 0) e.stop();
-          Serial.printf("Forward:%d,%d ", e.getL(), e.getR());
+          Serial.printf("Forward:%d,%d | ", e.getL(), e.getR());
           v.stop();
           v.state = RUN_QR;
           vTaskDelay(pdMS_TO_TICKS(1000));
         } else if (v.state == RUN_QR) {
           if (abs(v.eA) <= 1.5) {
             v.eX = v.qrData.x-320;
+            Serial.printf("eA=%.2f,",v.eA);
             Serial.printf("eX=%d\n",v.eX);
             v.alignQR = false;
             v.stop();
@@ -332,23 +391,17 @@ void taskControl(void* pvParameters) {
               if (v.qrData.id == v.start) {
                 Serial.println("Start arrived.");
                 v.nang();
-                vTaskDelay(pdMS_TO_TICKS(5000));
+                vTaskDelay(pdMS_TO_TICKS(10000)); // Thời gian chờ nâng hàng
                 v.arrivedStart = true;
                 v.setMission(v.start, v.goal);
-                for (size_t i = 0; i < v.steps.size(); ++i) {
-                  Serial.printf("[%02d] id=%d act=%d dir=%d\n",
-                                i,
-                                v.steps[i].id,
-                                v.steps[i].act,
-                                v.steps[i].dir);
-                }
+                Serial.printf("Next mission: %d steps\n", v.steps.size());
                 v.state = START;
                 v.stepIdx = 0;
               } else if (v.qrData.id == v.goal) {
                 Serial.println("Goal arrived.");
                 Serial.println("Mission complete.");
                 v.ha();
-                vTaskDelay(pdMS_TO_TICKS(5000));
+                vTaskDelay(pdMS_TO_TICKS(5000)); // Thời gian chờ hạ hàng
                 v.running = false;
                 b.write(9,v.running);
                 v.arrivedStart = false;
@@ -360,9 +413,11 @@ void taskControl(void* pvParameters) {
       } else {
         if (v.state == DONE_STEP && e.getL()>28) {
           v.fe = false;
+          v.be = false;
+          v.osbtacle = false;
           v.startEncoder = false;
           if (e.getL() > 0 || e.getR() > 0) e.stop();
-          Serial.printf("Forward:%d,%d ", e.getL(), e.getR());
+          Serial.printf("Forward:%d,%d | ", e.getL(), e.getR());
           v.stop();
           v.state = RUN_QR;
           vTaskDelay(pdMS_TO_TICKS(1000));
@@ -375,18 +430,18 @@ void taskControl(void* pvParameters) {
   }
 }
 
+// Hàm setup ban đầu
 void setup() {
   Serial.begin(115200);
   e.begin();
   a.begin();
   u.begin(&Serial2);
   v.begin(&e, &u, &a);
-  b.begin(&v);
+  b.begin(&v, &e);
   h.begin();
-  b.write(7, 0);
-  b.write(9, 0);
-  b.write(10, 0);
-  b.write(11, 0);
+
+  // Reset trạng thái hiển thị trên Blynk
+  b.write(7, 0); b.write(9, 0); b.write(10, 0); b.write(11, 0);
 
   // Tạo các task FreeRTOS
   xTaskCreate(taskRunBlynk, "TaskRunBlynk", 10000, NULL, 3, NULL);
@@ -398,6 +453,7 @@ void setup() {
   xTaskCreate(taskBack, "taskBack", 10000, NULL, 1, NULL);
   xTaskCreate(taskAlignQR, "taskAlignQR", 10000, NULL, 1, NULL);
   xTaskCreate(taskHCSR04, "taskHCSR04", 10000, NULL, 2, NULL);
+  xTaskCreate(taskDoVanToc, "taskDoVanToc", 10000, NULL, 2, NULL);
 }
 
-void loop() {}
+void loop() {} // Không cần làm gì trong loop vì đã sử dụng freeRTOS

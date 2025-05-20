@@ -1,7 +1,7 @@
 #include "Encoder.h"
 
-volatile int Encoder::encoderL = 0;
-volatile int Encoder::encoderR = 0;
+volatile long Encoder::encoderL = 0;
+volatile long Encoder::encoderR = 0;
 volatile bool Encoder::risingLeftDetected = false;
 volatile bool Encoder::risingRightDetected = false;
 unsigned long Encoder::lastDebounceLeft = 0;

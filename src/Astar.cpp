@@ -25,6 +25,10 @@ void AStar::reset() {
 }
 
 void AStar::setMission(int Start, int Goal) {
+  if (Start < 0 || Start >= _grid.size() || Goal < 0 || Goal >= _grid.size()) {
+    printf("mission error");
+    return;
+  }
   start = _grid[Start]; 
   goal = _grid[Goal];
 }

@@ -32,14 +32,14 @@ public:
   
   int start = 0;
   int goal = 0;
-  int speed = 40;
+  int speed = 50; // Vận tốc ban đầu
   Direction dir = POS_Y;
   State state = STOP;
   size_t stepIdx = 0;
   std::vector<Step> steps;
   Data qrData;
-  float eA;
-  int eX;
+  float eA = 0;
+  int eX = 0;
   float prev_eA = 0;
   bool alignQR = false;
   bool startMission = false;
@@ -57,6 +57,7 @@ public:
   bool osbtacle = false;
   bool error = false;
   bool arrivedStart = false;
+  bool estimate_v = false;
 private:
   Encoder* _encoder;
   Uart2* _uart2;

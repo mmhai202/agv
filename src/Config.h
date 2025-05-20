@@ -34,6 +34,9 @@ constexpr int LIFT_DIR = 22;
 constexpr int LIFT_PWM = 23;
 constexpr int PWM_CH_LIFT = 2;
 
+// Chân đọc pin
+constexpr int BATTERY_PIN = 13;
+
 // UART2 data
 struct Data {
   bool valid;
